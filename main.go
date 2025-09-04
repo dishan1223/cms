@@ -6,12 +6,14 @@ package main
 import (
 	"log"
 	"time"
+    "os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/robfig/cron/v3" // cron package
 	"github.com/dishan1223/cms/database"
 	"github.com/dishan1223/cms/routes"
 	"go.mongodb.org/mongo-driver/bson"
+	"github.com/joho/godotenv"
 	"context"
 )
 
@@ -37,6 +39,19 @@ func resetPayments() {
 func main() {
 	database.ConnectDB()
 
+    // load ENV
+    err := godotenv.Load()
+    if err != nil{
+        log.Fatal("Error loading .env file")
+    }
+
+    // Get PORT from env
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "3000"
+    }
+
+
 	app := fiber.New()
 
 	// Routes
@@ -52,13 +67,17 @@ func main() {
 	// ---- Setup Cron Job ----
 	c := cron.New()
 	// Run at midnight on the 1st of every month
-	_, err := c.AddFunc("0 0 1 * *", resetPayments)
+	_, err = c.AddFunc("0 0 1 * *", resetPayments)
 	if err != nil {
 		log.Fatal("❌ Error scheduling cron job:", err)
 	}
 	c.Start()
 
-	log.Println("🚀 Server started on port 3000")
-	app.Listen(":3000")
+	log.Println("🚀 Server started on port " + port)
+
+    err = app.Listen(":" + port)
+    if err != nil {
+        log.Fatal(err)
+    }
 }
 
