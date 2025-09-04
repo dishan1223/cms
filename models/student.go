@@ -10,4 +10,5 @@ type Student struct {
 	Class         string             `bson:"class" json:"class"`
 	Subject       string             `bson:"subject" json:"subject"`
 	PaymentStatus bool               `bson:"payment_status" json:"payment_status"`
+    PaymentAmount float64            `bson:"payment_amount" json:"payment_amount"`
 }

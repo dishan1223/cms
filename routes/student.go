@@ -59,37 +59,38 @@ func GetStudents(c *fiber.Ctx) error {
 
 // DeleteStudent handles DELETE requests to remove a student by ID
 func DeleteStudent(c *fiber.Ctx) error {
-	studentCollection := database.DB.Collection("students")
+    studentCollection := database.DB.Collection("students")
 
-	// Get the student ID from the URL parameter
-	idParam := c.Params("id")
-	if idParam == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ID is required"})
-	}
+    // Get the student ID from the URL parameter
+    idParam := c.Params("id")
+    if idParam == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ID is required"})
+    }
 
-	// Convert string ID to MongoDB ObjectID
-	studentID, err := primitive.ObjectIDFromHex(idParam)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-	}
+    // Convert string ID to MongoDB ObjectID
+    studentID, err := primitive.ObjectIDFromHex(idParam)
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+    }
 
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+    // Create context with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
 
-	// Delete the student from the collection
-	res, err := studentCollection.DeleteOne(ctx, bson.M{"_id": studentID})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete student"})
-	}
+    // Delete the student from the collection
+    res, err := studentCollection.DeleteOne(ctx, bson.M{"_id": studentID})
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete student"})
+    }
 
-	if res.DeletedCount == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Student not found"})
-	}
+    if res.DeletedCount == 0 {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Student not found"})
+    }
 
-	// Return success message
-	return c.JSON(fiber.Map{"message": "Student deleted successfully"})
+    // Return success message
+    return c.JSON(fiber.Map{"message": "Student deleted successfully"})
 }
+
 
 // UpdateStudent handles PATCH requests to edit a student's info by ID
 func UpdateStudent(c *fiber.Ctx) error {

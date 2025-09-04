@@ -12,6 +12,7 @@ import (
 	"github.com/robfig/cron/v3" // cron package
 	"github.com/dishan1223/cms/database"
 	"github.com/dishan1223/cms/routes"
+    "github.com/gofiber/fiber/v2/middleware/cors"
 	"go.mongodb.org/mongo-driver/bson"
 	"github.com/joho/godotenv"
 	"context"
@@ -53,6 +54,14 @@ func main() {
 
 
 	app := fiber.New()
+
+    // cors middleware
+    app.Use(cors.New(cors.Config{
+        AllowOrigins: "*",
+        AllowMethods: "GET, POST, PATCH, DELETE",
+        AllowHeaders: "Content-Type, Authorization, Accept, Origin",
+    }))
+
 
 	// Routes
 	app.Get("/", func(c *fiber.Ctx) error {
