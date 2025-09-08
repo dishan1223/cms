@@ -1,67 +1,40 @@
 package main
 
-
-// TODO: Need to test cron and check if its reseting the data every month while in production server
-
 import (
 	"log"
-	"time"
-    "os"
+	"os"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/robfig/cron/v3" // cron package
 	"github.com/dishan1223/cms/database"
 	"github.com/dishan1223/cms/routes"
-    "github.com/gofiber/fiber/v2/middleware/cors"
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
-	"context"
 )
 
-
-func resetPayments() {
-	collection := database.DB.Collection("students")
-
-	filter := bson.M{}
-	update := bson.M{"$set": bson.M{"payment_status": false}} // match struct field
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, err := collection.UpdateMany(ctx, filter, update)
-	if err != nil {
-		log.Println("❌ Failed to reset payments:", err)
-	} else {
-		log.Println("✅ Payments reset to false for all students")
-	}
-}
-
-
 func main() {
+	// Connect to MongoDB
 	database.ConnectDB()
 
-    // load ENV
-    err := godotenv.Load()
-    if err != nil{
-        log.Fatal("Error loading .env file")
-    }
+	// Load ENV variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("⚠️ .env file not found, continuing with environment variables")
+	}
 
-    // Get PORT from env
-    port := os.Getenv("PORT")
-    if port == "" {
-        port = "8080"
-    }
-
+	// Get PORT from env
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
 	app := fiber.New()
 
-    // cors middleware
-    app.Use(cors.New(cors.Config{
-        AllowOrigins: "*",
-        AllowMethods: "GET, POST, PATCH, DELETE",
-        AllowHeaders: "Content-Type, Authorization, Accept, Origin",
-    }))
-
+	// CORS middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET, POST, PATCH, DELETE",
+		AllowHeaders: "Content-Type, Authorization, Accept, Origin",
+	}))
 
 	// Routes
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -73,20 +46,11 @@ func main() {
 	app.Patch("/students/edit/:id", routes.UpdateStudent)
 	app.Patch("/students/payment/:id", routes.TogglePaymentStatus)
 
-	// ---- Setup Cron Job ----
-	c := cron.New()
-	// Run at midnight on the 1st of every month
-	_, err = c.AddFunc("0 0 1 * *", resetPayments)
-	if err != nil {
-		log.Fatal("❌ Error scheduling cron job:", err)
-	}
-	c.Start()
-
+	// Start server
 	log.Println("🚀 Server started on port " + port)
-
-    err = app.Listen(":" + port)
-    if err != nil {
-        log.Fatal(err)
-    }
+	err = app.Listen(":" + port)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
