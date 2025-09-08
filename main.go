@@ -12,19 +12,20 @@ import (
 )
 
 func main() {
-	// Connect to MongoDB
-	database.ConnectDB()
-
-	// Load ENV variables
-	err := godotenv.Load()
-	if err != nil {
+	// Load ENV variables (optional)
+	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️ .env file not found, continuing with environment variables")
 	}
 
-	// Get PORT from env
+	// Connect to MongoDB
+	if err := database.ConnectDB(); err != nil {
+		log.Fatal("❌ Failed to connect to MongoDB:", err)
+	}
+
+	// Get PORT from env (Render provides $PORT)
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8080" // fallback for local testing
 	}
 
 	app := fiber.New()
@@ -47,10 +48,9 @@ func main() {
 	app.Patch("/students/payment/:id", routes.TogglePaymentStatus)
 
 	// Start server
-	log.Println("🚀 Server started on port " + port)
-	err = app.Listen(":" + port)
-	if err != nil {
-		log.Fatal(err)
+	log.Println("🚀 Server starting on port " + port)
+	if err := app.Listen(":" + port); err != nil {
+		log.Fatal("❌ Server failed to start:", err)
 	}
 }
 
