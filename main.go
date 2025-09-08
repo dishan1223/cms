@@ -49,7 +49,7 @@ func main() {
     // Get PORT from env
     port := os.Getenv("PORT")
     if port == "" {
-        port = "3000"
+        port = "8080"
     }
 
 
