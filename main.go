@@ -46,6 +46,7 @@ func main() {
 	app.Delete("/students/delete/:id", routes.DeleteStudent)
 	app.Patch("/students/edit/:id", routes.UpdateStudent)
 	app.Patch("/students/payment/:id", routes.TogglePaymentStatus)
+    app.Get("/students/export", routes.ExportStudentsExcel)
 
 	// Start server
 	log.Println("🚀 Server starting on port " + port)
