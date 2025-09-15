@@ -70,14 +70,30 @@ func ExportStudents(c *fiber.Ctx) error {
 		}
 	}
 
-	// Reset all payment statuses to false after export
-	_, err = collection.UpdateMany(ctx, bson.M{}, bson.M{"$set": bson.M{"payment_status": false}})
+	// Current month (e.g., September_2025)
+	monthName := time.Now().Format("January_2006")
+
+	// 1. Add month to due_months where payment_status == false
+	_, err = collection.UpdateMany(
+		ctx,
+		bson.M{"payment_status": false},
+		bson.M{"$addToSet": bson.M{"due_months": monthName}}, // addToSet avoids duplicates
+	)
+	if err != nil {
+		log.Println("❌ Failed to add due months:", err)
+	}
+
+	// 2. Reset payment_status for all students
+	_, err = collection.UpdateMany(
+		ctx,
+		bson.M{},
+		bson.M{"$set": bson.M{"payment_status": false}},
+	)
 	if err != nil {
 		log.Println("❌ Failed to reset payments:", err)
 	}
 
 	// Dynamic filename with month and year
-	monthName := time.Now().Format("January_2006")
 	filename := fmt.Sprintf("student_report_of_%s.xlsx", monthName)
 
 	// Set headers so browser downloads with the proper name
