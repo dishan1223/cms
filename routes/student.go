@@ -36,6 +36,33 @@ func AddStudent(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(student)
 }
 
+// get students by their unique id
+func GetStudentByID(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	// Convert string ID → MongoDB ObjectID
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+
+	// Mongo collection
+	collection := database.DB.Collection("students")
+
+	// Find student
+	var student models.Student
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&student)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Student not found"})
+	}
+
+	return c.JSON(student)
+}
+
+
 // GetStudents handles GET requests to fetch all students
 func GetStudents(c *fiber.Ctx) error {
 	studentCollection := database.DB.Collection("students")
@@ -222,5 +249,36 @@ func notifyPayment(student models.Student) {
 		"\n | Phone: " + student.PhoneNumber
 
 	log.Println(message)
+}
+
+// reset students' due months
+func ResetDueMonths(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	// Convert string ID to MongoDB ObjectID
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+
+	collection := database.DB.Collection("students")
+
+	// Update the student's due_months field to null
+	update := bson.M{
+		"$set": bson.M{
+			"due_months": nil,
+		},
+	}
+
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, update)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to reset due months"})
+	}
+
+	if result.MatchedCount == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "Student not found"})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Due months reset successfully"})
 }
 

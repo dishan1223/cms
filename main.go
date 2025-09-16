@@ -42,11 +42,13 @@ func main() {
 		return c.SendString("Hello, Dishan! 🚀 GoFiber is running")
 	})
 	app.Get("/students", routes.GetStudents)
+    app.Get("/students/:id", routes.GetStudentByID)
 	app.Post("/students/new", routes.AddStudent)
 	app.Delete("/students/delete/:id", routes.DeleteStudent)
 	app.Patch("/students/edit/:id", routes.UpdateStudent)
 	app.Patch("/students/payment/:id", routes.TogglePaymentStatus)
     app.Get("/students/export", routes.ExportStudents)
+    app.Patch("/students/reset-due-months/:id", routes.ResetDueMonths)
 
 	// Start server
 	log.Println("🚀 Server starting on port " + port)
