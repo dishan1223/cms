@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/dishan1223/cms/database"
@@ -37,12 +39,54 @@ func ExportStudents(c *fiber.Ctx) error {
 		batchMap[s.BatchTime] = append(batchMap[s.BatchTime], s)
 	}
 
+	// Week order map
+	weekOrder := map[string]int{
+		"Saturday":  0,
+		"Sunday":    1,
+		"Monday":    2,
+		"Tuesday":   3,
+		"Wednesday": 4,
+		"Thursday":  5,
+		"Friday":    6,
+	}
+
+	// Study day mappings
+	studyDayMap := map[string]string{
+		"smw":     "Saturday, Monday, Wednesday",
+		"stt":     "Saturday, Tuesday, Thursday",
+		"regular": "Regular",
+	}
+
 	// Create Excel file
 	f := excelize.NewFile()
-
-	// Iterate over batches and create a sheet per batch
 	firstSheet := true
+
 	for batch, batchStudents := range batchMap {
+		// Map StudyDays codes to full names
+		for i := range batchStudents {
+			code := strings.ToLower(batchStudents[i].StudyDays)
+			if full, ok := studyDayMap[code]; ok {
+				batchStudents[i].StudyDays = full
+			}
+		}
+
+		// Sort students by first study day, except "Regular" stays at the end
+		sort.Slice(batchStudents, func(i, j int) bool {
+			iDays := batchStudents[i].StudyDays
+			jDays := batchStudents[j].StudyDays
+
+			if iDays == "Regular" {
+				return false
+			}
+			if jDays == "Regular" {
+				return true
+			}
+
+			iFirst := strings.Split(iDays, ",")[0]
+			jFirst := strings.Split(jDays, ",")[0]
+			return weekOrder[iFirst] < weekOrder[jFirst]
+		})
+
 		sheetName := batch
 		if firstSheet {
 			f.SetSheetName(f.GetSheetName(0), sheetName)
@@ -52,7 +96,7 @@ func ExportStudents(c *fiber.Ctx) error {
 		}
 
 		// Write headers
-		headers := []string{"Name", "Phone Number", "Class", "Subject", "Payment Status", "Payment Amount"}
+		headers := []string{"Name", "Phone Number", "Class", "Subject", "Payment Status", "Payment Amount", "Study Days"}
 		for i, h := range headers {
 			col := string(rune('A' + i))
 			f.SetCellValue(sheetName, col+"1", h)
@@ -67,23 +111,24 @@ func ExportStudents(c *fiber.Ctx) error {
 			f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), s.Subject)
 			f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), s.PaymentStatus)
 			f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), s.PaymentAmount)
+			f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), s.StudyDays)
 		}
 	}
 
 	// Current month (e.g., September_2025)
 	monthName := time.Now().Format("January_2006")
 
-	// 1. Add month to due_months where payment_status == false
+	// Add month to due_months where payment_status == false
 	_, err = collection.UpdateMany(
 		ctx,
 		bson.M{"payment_status": false},
-		bson.M{"$addToSet": bson.M{"due_months": monthName}}, // addToSet avoids duplicates
+		bson.M{"$addToSet": bson.M{"due_months": monthName}},
 	)
 	if err != nil {
 		log.Println("❌ Failed to add due months:", err)
 	}
 
-	// 2. Reset payment_status for all students
+	// Reset payment_status for all students
 	_, err = collection.UpdateMany(
 		ctx,
 		bson.M{},
@@ -93,10 +138,8 @@ func ExportStudents(c *fiber.Ctx) error {
 		log.Println("❌ Failed to reset payments:", err)
 	}
 
-	// Dynamic filename with month and year
+	// Dynamic filename
 	filename := fmt.Sprintf("student_report_of_%s.xlsx", monthName)
-
-	// Set headers so browser downloads with the proper name
 	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
