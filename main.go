@@ -42,7 +42,7 @@ func main() {
 		return c.SendString("Hello, Dishan! 🚀 GoFiber is running")
 	})
 	app.Get("/students", routes.GetStudents)
-    app.Get("/students/:id", routes.GetStudentByID)
+    app.Get("/student/:id", routes.GetStudentByID)
 	app.Post("/students/new", routes.AddStudent)
 	app.Delete("/students/delete/:id", routes.DeleteStudent)
 	app.Patch("/students/edit/:id", routes.UpdateStudent)
