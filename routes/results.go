@@ -1,3 +1,26 @@
+package routes
+
+import (
+	"fmt"
+	"sort"
+	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/xuri/excelize/v2"
+)
+
+// StudentResult represents the incoming data from frontend
+type StudentResult struct {
+	Name        string `json:"name"`
+	PhoneNumber string `json:"phone_number"`
+	Class       string `json:"class"`
+	BatchTime   string `json:"batch_time"`
+	StudyDays   string `json:"study_days"`
+	CQ          string `json:"cq"`
+	MCQ         string `json:"mcq"`
+}
+
+// Handler function to receive results and return Excel
 func SubmitResults(c *fiber.Ctx) error {
     var results []StudentResult
     if err := c.BodyParser(&results); err != nil {
@@ -60,4 +83,5 @@ func parseMarks(val string) int {
     i, _ := strconv.Atoi(val)
     return i
 }
+
 
