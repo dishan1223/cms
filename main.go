@@ -50,6 +50,8 @@ func main() {
     app.Get("/students/export", routes.ExportStudents)
     app.Patch("/students/reset-due-months/:id", routes.ResetDueMonths)
 
+    app.Post("/api/submit-results", routes.SubmitResults)
+
 	// Start server
 	log.Println("🚀 Server starting on port " + port)
 	if err := app.Listen(":" + port); err != nil {
