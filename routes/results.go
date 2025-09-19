@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/xuri/excelize/v2"
@@ -88,12 +89,12 @@ func parseMarks(val string) int {
 	return i
 }
 
-// Convert SMW / STT to full names
+// Convert smw / stt to full names
 func formatStudyDays(code string) string {
-	switch code {
-	case "SMW":
+	switch strings.ToLower(code) {
+	case "smw":
 		return "Saturday, Monday, Wednesday"
-	case "STT":
+	case "stt":
 		return "Sunday, Tuesday, Thursday"
 	default:
 		return code
