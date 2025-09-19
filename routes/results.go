@@ -2,7 +2,6 @@ package routes
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 
@@ -19,7 +18,7 @@ type StudentResult struct {
 	Total       int    // calculated
 }
 
-// Handler function to receive results
+// Handler function to receive results and stream Excel file
 func SubmitResults(c *fiber.Ctx) error {
 	var results []StudentResult
 
@@ -40,38 +39,7 @@ func SubmitResults(c *fiber.Ctx) error {
 		return results[i].Total > results[j].Total
 	})
 
-	// Generate Excel
-	if err := generateExcel(results); err != nil {
-		log.Println("Excel generation error:", err)
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Failed to generate Excel",
-		})
-	}
-
-	// Notify each student
-	for _, r := range results {
-		notifyMarks(r)
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Results received, Excel generated, and notifications triggered",
-	})
-}
-
-// Helper to parse marks, treating "Absent" as 0
-func parseMarks(m string) int {
-	if m == "Absent" {
-		return 0
-	}
-	val, err := strconv.Atoi(m)
-	if err != nil {
-		return 0
-	}
-	return val
-}
-
-// Generate Excel file with sorted results
-func generateExcel(results []StudentResult) error {
+	// Generate Excel in memory
 	f := excelize.NewFile()
 	sheet := "Results"
 	index, _ := f.NewSheet(sheet)
@@ -85,22 +53,42 @@ func generateExcel(results []StudentResult) error {
 
 	// Fill rows
 	for i, r := range results {
-		row := i + 2 // row 2 onwards
+		row := i + 2
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
 		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), r.Name)
 		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), r.PhoneNumber)
 		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), r.CQ)
 		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), r.MCQ)
 		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Total)
+
+		// Also notify
+		notifyMarks(r)
 	}
 
 	f.SetActiveSheet(index)
 
-	// Save file
-	if err := f.SaveAs("results.xlsx"); err != nil {
-		return err
+	// Stream as response
+	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set("Content-Disposition", "attachment; filename=results.xlsx")
+	if err := f.Write(c.Response().BodyWriter()); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to generate Excel file",
+		})
 	}
+
 	return nil
+}
+
+// Helper to parse marks, treating "Absent" as 0
+func parseMarks(m string) int {
+	if m == "Absent" {
+		return 0
+	}
+	val, err := strconv.Atoi(m)
+	if err != nil {
+		return 0
+	}
+	return val
 }
 
 // Example function to "notify" (you can later replace this with SMS/email)
