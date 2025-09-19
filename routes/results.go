@@ -1,102 +1,63 @@
-package routes
-
-import (
-	"fmt"
-	"sort"
-	"strconv"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/xuri/excelize/v2"
-)
-
-// StudentResult represents the incoming data from frontend
-type StudentResult struct {
-	Name        string `json:"name"`
-	PhoneNumber string `json:"phone_number"`
-	Class       string `json:"class"`
-	BatchTime   string `json:"batch_time"`
-	StudyDays   string `json:"study_days"`
-	CQ          string `json:"cq"`
-	MCQ         string `json:"mcq"`
-}
-
-// Handler function to receive results and return Excel
 func SubmitResults(c *fiber.Ctx) error {
-	var results []StudentResult
+    var results []StudentResult
+    if err := c.BodyParser(&results); err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+    }
 
-	// Parse request body
-	if err := c.BodyParser(&results); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid input",
-		})
-	}
+    // Call notifyMarks for each student
+    for _, s := range results {
+        notifyMarks(s)
+    }
 
-	// Run notifications
-	for _, r := range results {
-		notifyMarks(r)
-	}
+    // Sort by total marks descending
+    sort.Slice(results, func(i, j int) bool {
+        totalI := parseMarks(results[i].CQ) + parseMarks(results[i].MCQ)
+        totalJ := parseMarks(results[j].CQ) + parseMarks(results[j].MCQ)
+        return totalI > totalJ
+    })
 
-	// Convert marks to numbers for sorting
-	type sortableResult struct {
-		StudentResult
-		Total int
-	}
+    f := excelize.NewFile()
+    sheet := "Sheet1"
+    f.SetSheetName(f.GetSheetName(0), sheet)
+    f.SetCellValue(sheet, "A1", "Name")
+    f.SetCellValue(sheet, "B1", "Phone")
+    f.SetCellValue(sheet, "C1", "Class")
+    f.SetCellValue(sheet, "D1", "Batch")
+    f.SetCellValue(sheet, "E1", "Days")
+    f.SetCellValue(sheet, "F1", "CQ")
+    f.SetCellValue(sheet, "G1", "MCQ")
+    f.SetCellValue(sheet, "H1", "Total")
 
-	var sortable []sortableResult
-	for _, r := range results {
-		cq, _ := strconv.Atoi(r.CQ)
-		mcq, _ := strconv.Atoi(r.MCQ)
-		total := cq + mcq
-		sortable = append(sortable, sortableResult{StudentResult: r, Total: total})
-	}
+    for i, s := range results {
+        row := i + 2
+        cq := parseMarks(s.CQ)
+        mcq := parseMarks(s.MCQ)
+        f.SetCellValue(sheet, fmt.Sprintf("A%d", row), s.Name)
+        f.SetCellValue(sheet, fmt.Sprintf("B%d", row), s.PhoneNumber)
+        f.SetCellValue(sheet, fmt.Sprintf("C%d", row), s.Class)
+        f.SetCellValue(sheet, fmt.Sprintf("D%d", row), s.BatchTime)
+        f.SetCellValue(sheet, fmt.Sprintf("E%d", row), s.StudyDays)
+        f.SetCellValue(sheet, fmt.Sprintf("F%d", row), s.CQ)
+        f.SetCellValue(sheet, fmt.Sprintf("G%d", row), s.MCQ)
+        f.SetCellValue(sheet, fmt.Sprintf("H%d", row), cq+mcq)
+    }
 
-	// Sort by total marks descending
-	sort.Slice(sortable, func(i, j int) bool {
-		return sortable[i].Total > sortable[j].Total
-	})
-
-	// Create Excel file
-	f := excelize.NewFile()
-	sheet := "Results"
-	f.NewSheet(sheet)
-
-	// Header row
-	headers := []string{"S.No", "Name", "Phone Number", "Class", "Batch Time", "Study Days", "CQ", "MCQ", "Total"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
-	}
-
-	// Data rows
-	for i, r := range sortable {
-		row := i + 2 // Excel rows start at 1
-		values := []interface{}{
-			i + 1,
-			r.Name,
-			r.PhoneNumber,
-			r.Class,
-			r.BatchTime,
-			r.StudyDays,
-			r.CQ,
-			r.MCQ,
-			r.Total,
-		}
-		for j, v := range values {
-			cell, _ := excelize.CoordinatesToCellName(j+1, row)
-			f.SetCellValue(sheet, cell, v)
-		}
-	}
-
-	// Stream the Excel file
-	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Set("Content-Disposition", `attachment; filename="results.xlsx"`)
-	c.Set("File-Name", "results.xlsx")
-
-	return f.Write(c.Response().BodyWriter())
+    // Stream Excel file to client
+    c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    c.Set("Content-Disposition", "attachment; filename=results.xlsx")
+    buf, _ := f.WriteToBuffer()
+    return c.SendStream(buf)
 }
 
-// Example function to "notify" (you can later replace this with SMS/email)
 func notifyMarks(r StudentResult) {
-	fmt.Printf("📢 Student: %s (%s) | CQ: %s | MCQ: %s\n", r.Name, r.PhoneNumber, r.CQ, r.MCQ)
+    fmt.Printf("📢 Student: %s (%s) | CQ: %s | MCQ: %s\n", r.Name, r.PhoneNumber, r.CQ, r.MCQ)
+}
+
+func parseMarks(val string) int {
+    if val == "Absent" {
+        return 0
+    }
+    i, _ := strconv.Atoi(val)
+    return i
 }
 
