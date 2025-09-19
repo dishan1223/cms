@@ -13,12 +13,14 @@ import (
 type StudentResult struct {
 	Name        string `json:"name"`
 	PhoneNumber string `json:"phone_number"`
+	Class       string `json:"class"`
+	BatchTime   string `json:"batch_time"`
+	StudyDays   string `json:"study_days"`
 	CQ          string `json:"cq"`
 	MCQ         string `json:"mcq"`
-	Total       int    // calculated
 }
 
-// Handler function to receive results and stream Excel file
+// Handler function to receive results and return Excel
 func SubmitResults(c *fiber.Ctx) error {
 	var results []StudentResult
 
@@ -29,71 +31,72 @@ func SubmitResults(c *fiber.Ctx) error {
 		})
 	}
 
-	// Calculate totals
-	for i := range results {
-		results[i].Total = parseMarks(results[i].CQ) + parseMarks(results[i].MCQ)
+	// Run notifications
+	for _, r := range results {
+		notifyMarks(r)
 	}
 
-	// Sort by total marks (descending)
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Total > results[j].Total
+	// Convert marks to numbers for sorting
+	type sortableResult struct {
+		StudentResult
+		Total int
+	}
+
+	var sortable []sortableResult
+	for _, r := range results {
+		cq, _ := strconv.Atoi(r.CQ)
+		mcq, _ := strconv.Atoi(r.MCQ)
+		total := cq + mcq
+		sortable = append(sortable, sortableResult{StudentResult: r, Total: total})
+	}
+
+	// Sort by total marks descending
+	sort.Slice(sortable, func(i, j int) bool {
+		return sortable[i].Total > sortable[j].Total
 	})
 
-	// Generate Excel in memory
+	// Create Excel file
 	f := excelize.NewFile()
 	sheet := "Results"
-	index, _ := f.NewSheet(sheet)
+	f.NewSheet(sheet)
 
-	// Headers
-	headers := []string{"Rank", "Name", "Phone Number", "CQ", "MCQ", "Total"}
+	// Header row
+	headers := []string{"S.No", "Name", "Phone Number", "Class", "Batch Time", "Study Days", "CQ", "MCQ", "Total"}
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheet, cell, h)
 	}
 
-	// Fill rows
-	for i, r := range results {
-		row := i + 2
-		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), r.Name)
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), r.PhoneNumber)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), r.CQ)
-		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), r.MCQ)
-		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Total)
-
-		// Also notify
-		notifyMarks(r)
+	// Data rows
+	for i, r := range sortable {
+		row := i + 2 // Excel rows start at 1
+		values := []interface{}{
+			i + 1,
+			r.Name,
+			r.PhoneNumber,
+			r.Class,
+			r.BatchTime,
+			r.StudyDays,
+			r.CQ,
+			r.MCQ,
+			r.Total,
+		}
+		for j, v := range values {
+			cell, _ := excelize.CoordinatesToCellName(j+1, row)
+			f.SetCellValue(sheet, cell, v)
+		}
 	}
 
-	f.SetActiveSheet(index)
-
-	// Stream as response
+	// Stream the Excel file
 	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Set("Content-Disposition", "attachment; filename=results.xlsx")
-	if err := f.Write(c.Response().BodyWriter()); err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Failed to generate Excel file",
-		})
-	}
+	c.Set("Content-Disposition", `attachment; filename="results.xlsx"`)
+	c.Set("File-Name", "results.xlsx")
 
-	return nil
-}
-
-// Helper to parse marks, treating "Absent" as 0
-func parseMarks(m string) int {
-	if m == "Absent" {
-		return 0
-	}
-	val, err := strconv.Atoi(m)
-	if err != nil {
-		return 0
-	}
-	return val
+	return f.Write(c.Response().BodyWriter())
 }
 
 // Example function to "notify" (you can later replace this with SMS/email)
 func notifyMarks(r StudentResult) {
-	fmt.Printf("📢 Student: %s (%s) | CQ: %s | MCQ: %s | Total: %d\n",
-		r.Name, r.PhoneNumber, r.CQ, r.MCQ, r.Total)
+	fmt.Printf("📢 Student: %s (%s) | CQ: %s | MCQ: %s\n", r.Name, r.PhoneNumber, r.CQ, r.MCQ)
 }
 
