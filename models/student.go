@@ -15,5 +15,6 @@ type Student struct {
     DueMonths     []string           `bson:"due_months" json:"due_months"`
     // satureday , monday, wednesday - smw 
     // sunday , tuesday, thursday - stt
-    StudyDays    string           `bson:"study_days" json:"study_days"`
+    StudyDays     string             `bson:"study_days" json:"study_days"`
+    BatchDays     []string           `bson:"batch_days" json:"batch_days"`
 }

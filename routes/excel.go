@@ -105,11 +105,21 @@ func ExportStudents(c *fiber.Ctx) error {
 		// Write student rows
 		for rowIdx, s := range batchStudents {
 			row := rowIdx + 2
+
+
+			// convert payment status to a string
+			paymentStatus := "UNPAID"
+			if s.PaymentStatus {
+				paymentStatus = "PAID"
+			}
+
+
+
 			f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), s.Name)
 			f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), s.PhoneNumber)
 			f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), s.Class)
 			f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), s.Subject)
-			f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), s.PaymentStatus)
+			f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), paymentStatus)
 			f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), s.PaymentAmount)
 			f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), s.StudyDays)
 		}

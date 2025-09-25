@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+    "strconv"
     "time"
     "log"
 
@@ -119,6 +120,11 @@ func DeleteStudent(c *fiber.Ctx) error {
 }
 
 
+
+
+
+// NOTE :: THIS FUNCTION IS HIGHLY SENSITIVE 
+// NEEDS to be fixed before going on production...
 // UpdateStudent handles PATCH requests to edit a student's info by ID
 func UpdateStudent(c *fiber.Ctx) error {
 	studentCollection := database.DB.Collection("students")
@@ -138,17 +144,58 @@ func UpdateStudent(c *fiber.Ctx) error {
 	// Parse request body JSON into a map
 	updateData := make(map[string]interface{})
 	if err := c.BodyParser(&updateData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse students"})
+	}
+
+	// Remove empty fields so we don't overwrite existing data
+	for key, value := range updateData {
+		strVal, ok := value.(string)
+		if ok && strVal == "" {
+			delete(updateData, key)
+			continue
+		}
+
+		// Convert payment_amount to float64
+		if key == "payment_amount" {
+			switch v := value.(type) {
+			case string:
+				if f, err := strconv.ParseFloat(v, 64); err == nil {
+					updateData[key] = f
+				} else {
+					delete(updateData, key) // invalid, skip
+				}
+			}
+		}
+
+		// Convert payment_status to bool
+		if key == "payment_status" {
+			switch v := value.(type) {
+			case string:
+				if v == "true" {
+					updateData[key] = true
+				} else if v == "false" {
+					updateData[key] = false
+				} else {
+					delete(updateData, key)
+				}
+			case bool:
+				// already bool, no change
+			default:
+				delete(updateData, key)
+			}
+		}
+	}
+
+	if len(updateData) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No valid fields to update"})
 	}
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Prepare the update object
-	update := bson.M{"$set": updateData}
-
 	// Update the student in MongoDB
+	update := bson.M{"$set": updateData}
 	res, err := studentCollection.UpdateByID(ctx, studentID, update)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update student"})
@@ -160,8 +207,6 @@ func UpdateStudent(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "Student updated successfully"})
 }
-
-
 
 func TogglePaymentStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
