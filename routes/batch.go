@@ -56,3 +56,38 @@ func AddBatch(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(batch)
 }
 
+
+func DeleteBatch(c *fiber.Ctx) error {
+    batchCollection := database.DB.Collection("batches")
+
+    // Get the batch ID from the URL parameter
+    idParam := c.Params("id")
+    if idParam == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ID is required"})
+    }
+
+    
+    // Convert string ID to MongoDB ObjectID
+    batchID, err := primitive.ObjectIDFromHex(idParam)
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+    }
+
+    // Create context with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    
+
+    // Delete the batch from the collection
+    res, err := batchCollection.DeleteOne(ctx, bson.M{"_id": batchID})
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete batch"})
+    }
+
+    if res.DeletedCount == 0 {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Batch not found"})
+    }
+
+    return c.JSON(fiber.Map{"success": true, "message": "Batch deleted successfully"})
+}
+

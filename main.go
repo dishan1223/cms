@@ -55,6 +55,7 @@ func main() {
     // batch related routes
     app.Post("/api/batch/new", routes.AddBatch)
     app.Get("/api/batches", routes.GetAllBatch)
+    app.Delete("/api/batch/:id", routes.DeleteBatch)
 
 
     app.Post("/api/submit-results", routes.SubmitResults)

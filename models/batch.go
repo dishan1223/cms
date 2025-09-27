@@ -4,6 +4,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type Batch struct {
     ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+    BatchName     string             `bson:"batch_name" json:"batch_name"`
     Time          string             `bson:"time" json:"time"`
     Days          []string           `bson:"days" json:"days"`
     Class         string             `bson:"class" json:"class"`
