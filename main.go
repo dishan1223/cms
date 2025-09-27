@@ -41,6 +41,8 @@ func main() {
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, Dishan! 🚀 GoFiber is running")
 	})
+
+    // students related routes
 	app.Get("/students", routes.GetStudents)
     app.Get("/student/:id", routes.GetStudentByID)
 	app.Post("/students/new", routes.AddStudent)
@@ -49,6 +51,11 @@ func main() {
 	app.Patch("/students/payment/:id", routes.TogglePaymentStatus)
     app.Get("/students/export", routes.ExportStudents)
     app.Patch("/students/reset-due-months/:id", routes.ResetDueMonths)
+
+    // batch related routes
+    app.Post("/api/batch/new", routes.AddBatch)
+    app.Get("/api/batches", routes.GetAllBatch)
+
 
     app.Post("/api/submit-results", routes.SubmitResults)
 
