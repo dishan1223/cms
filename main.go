@@ -8,6 +8,7 @@ import (
 	"github.com/dishan1223/cms/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+    "github.com/dishan1223/cms/auth"
 	"github.com/joho/godotenv"
 )
 
@@ -42,6 +43,9 @@ func main() {
 		return c.SendString("Hello, Dishan! 🚀 GoFiber is running")
 	})
 
+    // login route
+    app.Get("/api/login", auth.LoginHandler)
+
     // students related routes
 	app.Get("/students", routes.GetStudents)
     app.Get("/student/:id", routes.GetStudentByID)
@@ -53,9 +57,9 @@ func main() {
     app.Patch("/students/reset-due-months/:id", routes.ResetDueMonths)
 
     // batch related routes
-    app.Post("/api/batch/new", routes.AddBatch)
-    app.Get("/api/batches", routes.GetAllBatch)
-    app.Delete("/api/batch/:id", routes.DeleteBatch)
+    app.Post("/api/batch/new",auth.PinAuthMiddleware, routes.AddBatch)
+    app.Get("/api/batches",auth.PinAuthMiddleware, routes.GetAllBatch)
+    app.Delete("/api/batch/:id",auth.PinAuthMiddleware, routes.DeleteBatch)
 
 
     app.Post("/api/submit-results", routes.SubmitResults)
