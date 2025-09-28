@@ -40,11 +40,19 @@ func LoginHandler(c *fiber.Ctx) error {
 
 // Middleware to protect routes
 func PinAuthMiddleware(c *fiber.Ctx) error {
-	pin := c.Query("pin")
+	// Get the PIN from the header instead of query
+	pin := c.Get("X-PIN")
+	if pin == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "PIN header missing"})
+	}
+
 	user, ok := checkUser(pin)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid PIN"})
 	}
+
+	// Store user in locals for later use
 	c.Locals("user", user)
 	return c.Next()
 }
+
